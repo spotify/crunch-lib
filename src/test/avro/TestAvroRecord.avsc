@@ -1,0 +1,10 @@
+{
+    "name": "TestAvroRecord",
+    "namespace": "com.spotify.crunch.test",
+    "type": "record",
+    "fields": [
+        {"name": "fieldA", "type": "string"},
+        {"name": "fieldB", "type": ["null", "string"], "default": null},
+        {"name": "fieldC", "type": "long", "default":0}
+    ]
+}
