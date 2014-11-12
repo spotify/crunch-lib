@@ -26,6 +26,13 @@ import static org.apache.crunch.fn.Aggregators.*;
 
 public class Averages {
 
+  /**
+   * Calculate the mean average value by key for a table with numeric values.
+   * @param table PTable of (key, value) pairs to operate on
+   * @param <K> Key type, can be any type
+   * @param <V> Value type, must be numeric (ie. extend java.lang.Number)
+   * @return PTable&lt;K, Double&gt; of (key, mean(values)) pairs
+   */
   public static <K, V extends Number> PTable<K, Double> meanValue(PTable<K, V> table) {
     PTypeFamily ptf = table.getTypeFamily();
     PTable<K, Pair<Double, Long>> withCounts = table.mapValues(new MapFn<V, Pair<Double, Long>>() {
