@@ -16,3 +16,6 @@ This repository contains useful reusable high-level components for common use-ca
   the count of the value part of the input table.
 * `globalTopList` Create a list of unique items in the input collection with their count, sorted descending by their
   frequency.
+
+## Averages
+* `meanValue` Calculates the mean value for each key in the provided numerically-valued PTable.
