@@ -19,3 +19,4 @@ This repository contains useful reusable high-level components for common use-ca
 
 ## Averages
 * `meanValue` Calculates the mean value for each key in the provided numerically-valued PTable.
+* `percentiles` Calculates a set of percentiles for each key in the provided numerically-valued PTable.

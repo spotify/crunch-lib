@@ -15,12 +15,13 @@
  */
 package com.spotify.crunch.lib;
 
-import org.apache.crunch.MapFn;
-import org.apache.crunch.PGroupedTable;
-import org.apache.crunch.PTable;
-import org.apache.crunch.Pair;
+import com.google.common.collect.*;
+import org.apache.crunch.*;
 
+import org.apache.crunch.lib.SecondarySort;
 import org.apache.crunch.types.PTypeFamily;
+
+import java.util.*;
 
 import static org.apache.crunch.fn.Aggregators.*;
 
@@ -52,4 +53,66 @@ public class Averages {
              }
             }, ptf.doubles());
   }
+
+  /**
+   * Calculate a set of percentiles for each key in a numerically-valued table.
+   *
+   * Percentiles are calculated on a per-key basis by counting, joining and sorting. This is highly scalable, but takes
+   * 2 more map-reduce cycles than if you can guarantee that the value set will fit into memory. The percentile
+   * definition that we use here is the "nearest rank" defined here: http://en.wikipedia.org/wiki/Percentile#Definition
+   *
+   * @param table numerically-valued PTable
+   * @param p1 First percentile (in the range 0.0 - 1.0)
+   * @param pn More percentiles (in the range 0.0 - 1.0)
+   * @param <K> Key type of the table
+   * @param <V> Value type of the table (must extends java.lang.Number)
+   * @return PTable of each key with a collection of pairs of the percentile provided and it's result.
+   */
+  public static <K, V extends Number> PTable<K, Collection<Pair<Double, V>>> percentiles(PTable<K, V> table, double p1, double... pn) {
+    final List<Double> percentileList = Lists.newArrayList(p1);
+    for (double p: pn) {
+      percentileList.add(p);
+    }
+
+    PTypeFamily ptf = table.getTypeFamily();
+    PTable<K, Long> totalCounts = table.keys().count();
+    PTable<K, Pair<Long, V>> countValuePairs = totalCounts.join(table);
+    PTable<K, Pair<V, Long>> valueCountPairs = countValuePairs.mapValues(new MapFn<Pair<Long, V>, Pair<V, Long>>() {
+      @Override
+      public Pair<V, Long> map(Pair<Long, V> input) {
+        return Pair.of(input.second(), input.first());
+      }
+    }, ptf.pairs(table.getValueType(), ptf.longs()));
+
+
+    return SecondarySort.sortAndApply(valueCountPairs, new MapFn<Pair<K, Iterable<Pair<V, Long>>>, Pair<K, Collection<Pair<Double, V>>>>() {
+      @Override
+      public Pair<K, Collection<Pair<Double, V>>> map(Pair<K, Iterable<Pair<V, Long>>> input) {
+        Collection<Pair<Double, V>> output = Lists.newArrayList();
+
+        PeekingIterator<Pair<V, Long>> iterator = Iterators.peekingIterator(input.second().iterator());
+        long count = iterator.peek().second();
+
+
+        Map<Long, Double> percentileIndices = Maps.newHashMap();
+        for (double percentile: percentileList) {
+          long idx = Math.min((int) Math.floor(percentile * count), count - 1);
+          percentileIndices.put(idx, percentile);
+        }
+
+        long index = 0;
+        while (iterator.hasNext()) {
+          V value = iterator.next().first();
+          if (percentileIndices.containsKey(index)) {
+            output.add(Pair.of(percentileIndices.get(index), value));
+          }
+          index++;
+        }
+
+        return Pair.of(input.first(), output);
+      }
+    }, ptf.tableOf(table.getKeyType(), ptf.collections(ptf.pairs(ptf.doubles(), table.getValueType()))));
+
+  }
+
 }
