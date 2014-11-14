@@ -27,7 +27,7 @@ import java.util.*;
 
 import static org.apache.crunch.fn.Aggregators.*;
 
-public class Averages {
+public class Statistics {
 
   /**
    * Calculate the mean average value by key for a table with numeric values.

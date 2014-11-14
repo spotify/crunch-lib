@@ -28,7 +28,7 @@ import java.util.Map;
 import static org.junit.Assert.*;
 import static org.apache.crunch.types.avro.Avros.*;
 
-public class AveragesTest {
+public class StatisticsTest {
   @Test
   public void testMeanValue() {
     PTable<String, Integer> testTable = MemPipeline.typedTableOf(
@@ -39,7 +39,7 @@ public class AveragesTest {
             "c", 3,
             "c", 4,
             "c", 5);
-    Map<String, Double> actual = Averages.meanValue(testTable).materializeToMap();
+    Map<String, Double> actual = Statistics.meanValue(testTable).materializeToMap();
     Map<String, Double> expected = ImmutableMap.of(
             "a", 6.0,
             "b", 3.0,
@@ -58,8 +58,8 @@ public class AveragesTest {
             "a", 3,
             "a", 4,
             "a", 1);
-    Map<String, Collection<Pair<Double, Integer>>> actualS = Averages.scalablePercentiles(testTable, 0, 0.5, 1.0).materializeToMap();
-    Map<String, Collection<Pair<Double, Integer>>> actualM = Averages.inMemoryPercentiles(testTable, 0, 0.5, 1.0).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> actualS = Statistics.scalablePercentiles(testTable, 0, 0.5, 1.0).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> actualM = Statistics.inMemoryPercentiles(testTable, 0, 0.5, 1.0).materializeToMap();
     Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
             "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.0, 1), Pair.of(0.5, 3), Pair.of(1.0, 5))
     );
@@ -76,8 +76,8 @@ public class AveragesTest {
             "a", 2,
             "a", 4, // We expect the 0.5 to correspond to this element, according to the "nearest rank" %ile definition.
             "a", 1);
-    Map<String, Collection<Pair<Double, Integer>>> actualS = Averages.scalablePercentiles(testTable, 0.5).materializeToMap();
-    Map<String, Collection<Pair<Double, Integer>>> actualM = Averages.inMemoryPercentiles(testTable, 0.5).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> actualS = Statistics.scalablePercentiles(testTable, 0.5).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> actualM = Statistics.inMemoryPercentiles(testTable, 0.5).materializeToMap();
     Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
             "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.5, 4))
     );
