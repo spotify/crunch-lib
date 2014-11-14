@@ -15,12 +15,14 @@
  */
 package com.spotify.crunch.lib;
 
+import com.google.common.base.Function;
 import com.google.common.collect.*;
 import org.apache.crunch.*;
 
 import org.apache.crunch.lib.SecondarySort;
 import org.apache.crunch.types.PTypeFamily;
 
+import javax.annotation.Nullable;
 import java.util.*;
 
 import static org.apache.crunch.fn.Aggregators.*;
@@ -58,8 +60,11 @@ public class Averages {
    * Calculate a set of percentiles for each key in a numerically-valued table.
    *
    * Percentiles are calculated on a per-key basis by counting, joining and sorting. This is highly scalable, but takes
-   * 2 more map-reduce cycles than if you can guarantee that the value set will fit into memory. The percentile
-   * definition that we use here is the "nearest rank" defined here: http://en.wikipedia.org/wiki/Percentile#Definition
+   * 2 more map-reduce cycles than if you can guarantee that the value set will fit into memory. Use inMemoryPercentiles
+   * if you have less than the order of 10M values per key.
+   *
+   * The percentile definition that we use here is the "nearest rank" defined here:
+   * http://en.wikipedia.org/wiki/Percentile#Definition
    *
    * @param table numerically-valued PTable
    * @param p1 First percentile (in the range 0.0 - 1.0)
@@ -68,11 +73,9 @@ public class Averages {
    * @param <V> Value type of the table (must extends java.lang.Number)
    * @return PTable of each key with a collection of pairs of the percentile provided and it's result.
    */
-  public static <K, V extends Number> PTable<K, Collection<Pair<Double, V>>> percentiles(PTable<K, V> table, double p1, double... pn) {
-    final List<Double> percentileList = Lists.newArrayList(p1);
-    for (double p: pn) {
-      percentileList.add(p);
-    }
+  public static <K, V extends Number> PTable<K, Collection<Pair<Double, V>>> scalablePercentiles(PTable<K, V> table,
+          double p1, double... pn) {
+    final List<Double> percentileList = createListFromVarargs(p1, pn);
 
     PTypeFamily ptf = table.getTypeFamily();
     PTable<K, Long> totalCounts = table.keys().count();
@@ -88,31 +91,85 @@ public class Averages {
     return SecondarySort.sortAndApply(valueCountPairs, new MapFn<Pair<K, Iterable<Pair<V, Long>>>, Pair<K, Collection<Pair<Double, V>>>>() {
       @Override
       public Pair<K, Collection<Pair<Double, V>>> map(Pair<K, Iterable<Pair<V, Long>>> input) {
-        Collection<Pair<Double, V>> output = Lists.newArrayList();
 
         PeekingIterator<Pair<V, Long>> iterator = Iterators.peekingIterator(input.second().iterator());
         long count = iterator.peek().second();
 
-
-        Map<Long, Double> percentileIndices = Maps.newHashMap();
-        for (double percentile: percentileList) {
-          long idx = Math.min((int) Math.floor(percentile * count), count - 1);
-          percentileIndices.put(idx, percentile);
-        }
-
-        long index = 0;
-        while (iterator.hasNext()) {
-          V value = iterator.next().first();
-          if (percentileIndices.containsKey(index)) {
-            output.add(Pair.of(percentileIndices.get(index), value));
+        Iterator<V> valueIterator = Iterators.transform(iterator, new Function<Pair<V, Long>, V>() {
+          @Override
+          public V apply(@Nullable Pair<V, Long> input) {
+            return input.first();
           }
-          index++;
-        }
+        });
 
+        Collection<Pair<Double, V>> output = findPercentiles(valueIterator, count, percentileList);
         return Pair.of(input.first(), output);
       }
-    }, ptf.tableOf(table.getKeyType(), ptf.collections(ptf.pairs(ptf.doubles(), table.getValueType()))));
 
+
+    }, ptf.tableOf(table.getKeyType(), ptf.collections(ptf.pairs(ptf.doubles(), table.getValueType()))));
   }
 
+  /**
+   * Calculate a set of percentiles for each key in a numerically-valued table.
+   *
+   * Percentiles are calculated on a per-key basis by grouping, reading the data into memory, then sorting and
+   * and calculating. This is much faster than the scalable option, but if you get into the order of 10M+ per key, then
+   * performance might start to degrade or even cause OOMs.
+   *
+   * The percentile definition that we use here is the "nearest rank" defined here:
+   * http://en.wikipedia.org/wiki/Percentile#Definition
+   *
+   * @param table numerically-valued PTable
+   * @param p1 First percentile (in the range 0.0 - 1.0)
+   * @param pn More percentiles (in the range 0.0 - 1.0)
+   * @param <K> Key type of the table
+   * @param <V> Value type of the table (must extends java.lang.Number)
+   * @return PTable of each key with a collection of pairs of the percentile provided and it's result.
+   */
+  public static <K, V extends Comparable> PTable<K, Collection<Pair<Double, V>>> inMemoryPercentiles(PTable<K, V> table,
+          double p1, double... pn) {
+    final List<Double> percentileList = createListFromVarargs(p1, pn);
+
+    PTypeFamily ptf = table.getTypeFamily();
+
+    return table
+            .groupByKey()
+            .parallelDo(new MapFn<Pair<K, Iterable<V>>, Pair<K, Collection<Pair<Double, V>>>>() {
+              @Override
+              public Pair<K, Collection<Pair<Double, V>>> map(Pair<K, Iterable<V>> input) {
+                List<V> values = Lists.newArrayList(input.second().iterator());
+                Collections.sort(values);
+                return Pair.of(input.first(), findPercentiles(values.iterator(), values.size(), percentileList));
+              }
+            }, ptf.tableOf(table.getKeyType(), ptf.collections(ptf.pairs(ptf.doubles(), table.getValueType()))));
+  }
+
+  private static List<Double> createListFromVarargs(double p1, double[] pn) {
+    final List<Double> percentileList = Lists.newArrayList(p1);
+    for (double p: pn) {
+      percentileList.add(p);
+    }
+    return percentileList;
+  }
+
+  private static <V> Collection<Pair<Double, V>> findPercentiles(Iterator<V> sortedCollectionIterator,
+          long collectionSize, List<Double> percentiles) {
+    Collection<Pair<Double, V>> output = Lists.newArrayList();
+    Map<Long, Double> percentileIndices = Maps.newHashMap();
+    for (double percentile: percentiles) {
+      long idx = Math.min((int) Math.floor(percentile * collectionSize), collectionSize - 1);
+      percentileIndices.put(idx, percentile);
+    }
+
+    long index = 0;
+    while (sortedCollectionIterator.hasNext()) {
+      V value = sortedCollectionIterator.next();
+      if (percentileIndices.containsKey(index)) {
+        output.add(Pair.of(percentileIndices.get(index), value));
+      }
+      index++;
+    }
+    return output;
+  }
 }

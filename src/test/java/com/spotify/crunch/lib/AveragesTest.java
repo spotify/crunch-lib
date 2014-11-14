@@ -58,12 +58,14 @@ public class AveragesTest {
             "a", 3,
             "a", 4,
             "a", 1);
-    Map<String, Collection<Pair<Double, Integer>>> actual = Averages.percentiles(testTable, 0, 0.5, 1.0).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> actualS = Averages.scalablePercentiles(testTable, 0, 0.5, 1.0).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> actualM = Averages.inMemoryPercentiles(testTable, 0, 0.5, 1.0).materializeToMap();
     Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
             "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.0, 1), Pair.of(0.5, 3), Pair.of(1.0, 5))
     );
 
-    assertEquals(expected, actual);
+    assertEquals(expected, actualS);
+    assertEquals(expected, actualM);
   }
 
   @Test
@@ -74,12 +76,14 @@ public class AveragesTest {
             "a", 2,
             "a", 4, // We expect the 0.5 to correspond to this element, according to the "nearest rank" %ile definition.
             "a", 1);
-    Map<String, Collection<Pair<Double, Integer>>> actual = Averages.percentiles(testTable, 0.5).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> actualS = Averages.scalablePercentiles(testTable, 0.5).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> actualM = Averages.inMemoryPercentiles(testTable, 0.5).materializeToMap();
     Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
             "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.5, 4))
     );
 
-    assertEquals(expected, actual);
+    assertEquals(expected, actualS);
+    assertEquals(expected, actualM);
   }
 
 }
