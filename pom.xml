@@ -3,17 +3,36 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
-    <groupId>com.spotify.data</groupId>
+    <groupId>com.spotify.crunch</groupId>
     <artifactId>crunch-lib</artifactId>
     <version>0.0.1-SNAPSHOT</version>
+    <name>${project.groupId}:${project.artifactId}</name>
+    <description>
+        Useful reusable high-level components for common use-cases in processing data with Apache Crunch
+    </description>
+    <url>https://github.com/spotify/crunch-lib</url>
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <name>David Whiting</name>
+            <email>davw@spotify.com</email>
+            <organization>Spotify</organization>
+            <organizationUrl>https://github.com/spotify</organizationUrl>
+        </developer>
+    </developers>
     <properties>
         <crunch.version>0.11.0-hadoop2</crunch.version>
         <avro.version>1.7.4</avro.version>
         <hadoop.version>2.2.0</hadoop.version>
     </properties>
     <scm>
-        <connection>scm:git:git@github.com:DavW/crunch-lib.git</connection>
+        <connection>scm:git:git@github.com:spotify/crunch-lib.git</connection>
+        <developerConnection>scm:git:git@github.com:spotify/crunch-lib.git</developerConnection>
         <tag>HEAD</tag>
     </scm>
     <dependencies>
