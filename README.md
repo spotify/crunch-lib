@@ -17,6 +17,8 @@ This repository contains useful reusable high-level components for common use-ca
 * `globalTopList` Create a list of unique items in the input collection with their count, sorted descending by their
   frequency.
 
-## Statistics
+## Averages
 * `meanValue` Calculates the mean value for each key in the provided numerically-valued PTable.
-* `scalablePercentiles` / `inMemoryPercentiles` Calculates a set of percentiles for each key in the provided numerically-valued PTable.
+
+## Percentiles
+* `distributed` / `inMemory` Calculates a set of percentiles for each key in the provided numerically-valued PTable.
