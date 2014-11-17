@@ -15,11 +15,7 @@
  */
 package com.spotify.crunch.lib;
 
-import org.apache.crunch.MapFn;
-import org.apache.crunch.PGroupedTable;
-import org.apache.crunch.PTable;
-import org.apache.crunch.Pair;
-
+import org.apache.crunch.*;
 import org.apache.crunch.types.PTypeFamily;
 
 import static org.apache.crunch.fn.Aggregators.*;
@@ -52,4 +48,5 @@ public class Averages {
              }
             }, ptf.doubles());
   }
+
 }
