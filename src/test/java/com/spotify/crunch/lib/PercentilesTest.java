@@ -41,16 +41,66 @@ public class PercentilesTest {
     PTable<String, Integer> testTable = MemPipeline.typedTableOf(
             tableOf(strings(), ints()),
             "a", 5,
-            "a", 2,
-            "a", 4, // We expect the 0.5 to correspond to this element, according to the "nearest rank" %ile definition.
+            "a", 2, // We expect the 0.5 to correspond to this element, according to the "nearest rank" %ile definition.
+            "a", 4,
             "a", 1);
     Map<String, Collection<Pair<Double, Integer>>> actualS = Percentiles.distributed(testTable, 0.5).materializeToMap();
     Map<String, Collection<Pair<Double, Integer>>> actualM = Percentiles.inMemory(testTable, 0.5).materializeToMap();
     Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
-            "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.5, 4))
+            "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.5, 2))
     );
 
     assertEquals(expected, actualS);
     assertEquals(expected, actualM);
   }
+
+  @Test
+  public void testPercentilesNines() {
+    PTable<String, Integer> testTable = MemPipeline.typedTableOf(
+            tableOf(strings(), ints()),
+            "a", 10,
+            "a", 20,
+            "a", 30,
+            "a", 40,
+            "a", 50,
+            "a", 60,
+            "a", 70,
+            "a", 80,
+            "a", 90,
+            "a", 100);
+    Map<String, Collection<Pair<Double, Integer>>> actualS = Percentiles.distributed(testTable, 0.9, 0.99).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> actualM = Percentiles.inMemory(testTable, 0.9, 0.99).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
+            "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.9, 90), Pair.of(0.99, 100))
+    );
+
+    assertEquals(expected, actualS);
+    assertEquals(expected, actualM);
+  }
+
+  @Test
+  public void testPercentilesLessThanOrEqual() {
+    PTable<String, Integer> testTable = MemPipeline.typedTableOf(
+            tableOf(strings(), ints()),
+            "a", 10,
+            "a", 20,
+            "a", 30,
+            "a", 40,
+            "a", 50,
+            "a", 60,
+            "a", 70,
+            "a", 80,
+            "a", 90,
+            "a", 100);
+    Map<String, Collection<Pair<Double, Integer>>> actualS = Percentiles.distributed(testTable, 0.5).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> actualM = Percentiles.inMemory(testTable, 0.5).materializeToMap();
+    Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
+            "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.5, 50))
+    );
+
+    assertEquals(expected, actualS);
+    assertEquals(expected, actualM);
+  }
+
+
 }
