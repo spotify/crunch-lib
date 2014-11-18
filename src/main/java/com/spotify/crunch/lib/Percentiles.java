@@ -1,10 +1,7 @@
 package com.spotify.crunch.lib;
 
 import com.google.common.base.Function;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.PeekingIterator;
+import com.google.common.collect.*;
 import org.apache.crunch.MapFn;
 import org.apache.crunch.PTable;
 import org.apache.crunch.Pair;
@@ -97,9 +94,10 @@ public class Percentiles {
   private static <V> Collection<Pair<Double, V>> findPercentiles(Iterator<V> sortedCollectionIterator,
           long collectionSize, List<Double> percentiles) {
     Collection<Pair<Double, V>> output = Lists.newArrayList();
-    Map<Long, Double> percentileIndices = Maps.newHashMap();
+    Multimap<Long, Double> percentileIndices = ArrayListMultimap.create();
+
     for (double percentile: percentiles) {
-      long idx = Math.min((int) Math.floor(percentile * collectionSize), collectionSize - 1);
+      long idx = Math.max((int) Math.ceil(percentile * collectionSize) - 1, 0);
       percentileIndices.put(idx, percentile);
     }
 
@@ -107,7 +105,9 @@ public class Percentiles {
     while (sortedCollectionIterator.hasNext()) {
       V value = sortedCollectionIterator.next();
       if (percentileIndices.containsKey(index)) {
-        output.add(Pair.of(percentileIndices.get(index), value));
+        for (double percentile: percentileIndices.get(index)) {
+          output.add(Pair.of(percentile, value));
+        }
       }
       index++;
     }
