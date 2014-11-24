@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.spotify.crunch</groupId>
     <artifactId>crunch-lib</artifactId>
-    <version>0.0.2</version>
+    <version>0.0.3-SNAPSHOT</version>
     <name>${project.groupId}:${project.artifactId}</name>
     <description>
         Useful reusable high-level components for common use-cases in processing data with Apache Crunch
