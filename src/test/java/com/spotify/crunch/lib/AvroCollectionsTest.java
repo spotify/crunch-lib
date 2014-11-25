@@ -21,8 +21,11 @@ import com.spotify.crunch.test.TestAvroRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.crunch.PCollection;
 import org.apache.crunch.PTable;
+import org.apache.crunch.Tuple3;
 import org.apache.crunch.impl.mem.MemPipeline;
-import org.apache.crunch.types.avro.Avros;
+import static org.apache.crunch.types.avro.Avros.*;
+
+import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -32,30 +35,54 @@ public class AvroCollectionsTest {
   public void testKeyByAvroFieldSimple() throws PlanTimeException {
     TestAvroRecord rec = TestAvroRecord.newBuilder().setFieldA(new Utf8("hello")).setFieldB("world").setFieldC(10L).build();
     PCollection<TestAvroRecord> collection =
-            MemPipeline.typedCollectionOf(Avros.specifics(TestAvroRecord.class), rec);
+            MemPipeline.typedCollectionOf(specifics(TestAvroRecord.class), rec);
 
-    PTable<String, TestAvroRecord> table = AvroCollections.keyByAvroField(collection, "fieldA");
+    PTable<String, TestAvroRecord> table = AvroCollections.keyByAvroField(collection, "fieldA", strings());
     assertEquals(ImmutableMap.of("hello", rec), table.materializeToMap());
   }
 
-  @Test
-   public void testKeyByAvroFieldNull() throws PlanTimeException {
-    TestAvroRecord rec = TestAvroRecord.newBuilder().setFieldA(new Utf8("hello")).setFieldB(null).setFieldC(10L).build();
-    PCollection<TestAvroRecord> collection =
-            MemPipeline.typedCollectionOf(Avros.specifics(TestAvroRecord.class), rec);
-
-    PTable<String, TestAvroRecord> table = AvroCollections.keyByAvroField(collection, "fieldB");
-    assertEquals(ImmutableMap.of("null", rec), table.materializeToMap());
-  }
 
   @Test
   public void testKeyByAvroFieldNested() throws PlanTimeException {
     TestAvroRecord rec = TestAvroRecord.newBuilder().setFieldA(new Utf8("hello")).setFieldB("world").setFieldC(10L).build();
     NestAvroRecord nest = NestAvroRecord.newBuilder().setFieldX("eggs").setFieldY(rec).build();
     PCollection<NestAvroRecord> collection =
-            MemPipeline.typedCollectionOf(Avros.specifics(NestAvroRecord.class), nest);
+            MemPipeline.typedCollectionOf(specifics(NestAvroRecord.class), nest);
 
-    PTable<String, NestAvroRecord> table = AvroCollections.keyByAvroField(collection, "fieldY.fieldA");
+    PTable<String, NestAvroRecord> table = AvroCollections.keyByAvroField(collection, "fieldY.fieldA", strings());
     assertEquals(ImmutableMap.of("hello", nest), table.materializeToMap());
+  }
+
+  @Test
+  @Ignore("Guava ImmutableLists (which back MemCollections) cannot contain nulls")
+  public void testExtractNull() throws PlanTimeException {
+    TestAvroRecord rec = TestAvroRecord.newBuilder().setFieldA(new Utf8("hello")).setFieldB(null).setFieldC(10L).build();
+    PCollection<TestAvroRecord> collection =
+            MemPipeline.typedCollectionOf(specifics(TestAvroRecord.class), rec);
+
+    PCollection<String> result = AvroCollections.extract(collection, "fieldB", strings());
+    assertEquals(null, result.materialize().iterator().next());
+  }
+
+  @Test
+  public void testExtract2() {
+    TestAvroRecord rec = TestAvroRecord.newBuilder().setFieldA(new Utf8("hello")).setFieldB("world").setFieldC(10L).build();
+    PCollection<TestAvroRecord> collection =
+            MemPipeline.typedCollectionOf(specifics(TestAvroRecord.class), rec);
+
+    PTable<String, String> table = AvroCollections.extract(collection, "fieldA", "fieldB", tableOf(strings(), strings()));
+    assertEquals(ImmutableMap.of("hello", "world"), table.materializeToMap());
+  }
+
+  @Test
+  public void testExtract3() {
+    TestAvroRecord rec = TestAvroRecord.newBuilder().setFieldA(new Utf8("hello")).setFieldB("world").setFieldC(10L).build();
+    NestAvroRecord nest = NestAvroRecord.newBuilder().setFieldX("eggs").setFieldY(rec).build();
+    PCollection<NestAvroRecord> collection =
+            MemPipeline.typedCollectionOf(specifics(NestAvroRecord.class), nest);
+    PCollection<Tuple3<String, String, String>> coll =
+            AvroCollections.extract(collection, "fieldY.fieldA", "fieldY.fieldB", "fieldX", triples(strings(), strings(), strings()));
+    Tuple3<String, String, String> actual = coll.materialize().iterator().next();
+    assertEquals(Tuple3.of("hello", "world", "eggs"), actual);
   }
 }
