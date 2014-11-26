@@ -3,6 +3,16 @@
 This repository contains useful reusable high-level components for common use-cases in processing data with
 [Apache Crunch](http://crunch.apache.org)
 
+If you want to try it, it's in the central Maven repo so you can use this snippet (or equivalent for gradle/sbt/...)
+
+```xml
+<dependency>
+   <groupId>com.spotify.crunch</groupId>
+   <artifactId>crunch-lib</artifactId>
+   <version>0.0.3</version>
+</dependency>
+```
+
 ## AvroCollections
 * `extract` pulls out individual fields from a `PCollection` of Avro records by their field names without the need for
    trivial `MapFn`s
