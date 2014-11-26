@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.spotify.crunch</groupId>
     <artifactId>crunch-lib</artifactId>
-    <version>0.0.3</version>
+    <version>0.0.4-SNAPSHOT</version>
     <name>${project.groupId}:${project.artifactId}</name>
     <description>
         Useful reusable high-level components for common use-cases in processing data with Apache Crunch
@@ -32,7 +32,7 @@
         <url>https://github.com/spotify/crunch-lib</url>
         <connection>scm:git:git@github.com:spotify/crunch-lib.git</connection>
         <developerConnection>scm:git:git@github.com:spotify/crunch-lib.git</developerConnection>
-        <tag>crunch-lib-0.0.3</tag>
+        <tag>HEAD</tag>
     </scm>
     <distributionManagement>
         <snapshotRepository>
