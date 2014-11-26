@@ -100,11 +100,20 @@ public class AvroCollections {
             pType);
   }
 
-
+  /**
+   * MapFn to extract a field from an Avro record
+   * @param <T> Avro record class
+   * @param <F> Field type
+   */
   private static class AvroExtractMapFn<T extends SpecificRecord, F> extends MapFn<T, F> {
     private final List<Integer> indices;
     private boolean targetIsString = false;
 
+    /**
+     * Create a new AvroExtractMapFn
+     * @param recordType Java class for the Avro record that we want to extract the field from
+     * @param path field name, or for nested records a .-separated "path" to the field that you want to extract
+     */
     public AvroExtractMapFn(Class<T> recordType, String path) {
       Schema recordSchema = ReflectionUtils.newInstance(recordType, new Configuration()).getSchema();
       indices = findIndices(recordSchema, Splitter.on(".").split(path));
@@ -125,7 +134,7 @@ public class AvroCollections {
       return indices;
     }
 
-    private Schema descendUnion(Schema schema) {
+    private static Schema descendUnion(Schema schema) {
       if (schema.getType() == Schema.Type.UNION) {
         return firstNotNull(schema.getTypes());
       } else {
@@ -133,7 +142,7 @@ public class AvroCollections {
       }
     }
 
-    private Schema firstNotNull(Iterable<Schema> schemas) {
+    private static Schema firstNotNull(Iterable<Schema> schemas) {
       for (Schema s: schemas) {
         if (s.getType() != Schema.Type.NULL) {
           return s;
@@ -142,7 +151,8 @@ public class AvroCollections {
       throw new PlanTimeException("Union type had no non-null types");
     }
 
-    public F get(T record) {
+    @Override
+    public F map(T record) {
       Object fieldValue = record;
       for (int i : indices) {
         fieldValue = ((IndexedRecord)fieldValue).get(i);
@@ -159,11 +169,6 @@ public class AvroCollections {
       } else {
         return (F) fieldValue;
       }
-    }
-
-    @Override
-    public F map(T input) {
-      return get(input);
     }
   }
 }
