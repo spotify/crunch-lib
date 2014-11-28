@@ -30,7 +30,7 @@ public class Percentiles {
    * @param <V> Value type of the table (must extends java.lang.Number)
    * @return PTable of each key with a collection of pairs of the percentile provided and it's result.
    */
-  public static <K, V extends Number> PTable<K, Collection<Pair<Double, V>>> distributed(PTable<K, V> table,
+  public static <K, V extends Number> PTable<K, Pair<Collection<Pair<Double, V>>, Long>> distributed(PTable<K, V> table,
           double p1, double... pn) {
     final List<Double> percentileList = createListFromVarargs(p1, pn);
 
@@ -44,7 +44,7 @@ public class Percentiles {
     return SecondarySort.sortAndApply(
             valueCountPairs,
             new DistributedPercentiles<K, V>(percentileList),
-            ptf.tableOf(table.getKeyType(), ptf.collections(ptf.pairs(ptf.doubles(), table.getValueType()))));
+            ptf.tableOf(table.getKeyType(), ptf.pairs(ptf.collections(ptf.pairs(ptf.doubles(), table.getValueType())), ptf.longs())));
   }
 
   /**
@@ -64,7 +64,7 @@ public class Percentiles {
    * @param <V> Value type of the table (must extends java.lang.Number)
    * @return PTable of each key with a collection of pairs of the percentile provided and it's result.
    */
-  public static <K, V extends Comparable> PTable<K, Collection<Pair<Double, V>>> inMemory(PTable<K, V> table,
+  public static <K, V extends Comparable> PTable<K, Pair<Collection<Pair<Double, V>>, Long>> inMemory(PTable<K, V> table,
           double p1, double... pn) {
     final List<Double> percentileList = createListFromVarargs(p1, pn);
 
@@ -73,7 +73,7 @@ public class Percentiles {
     return table
             .groupByKey()
             .parallelDo(new InMemoryPercentiles<K, V>(percentileList),
-                        ptf.tableOf(table.getKeyType(), ptf.collections(ptf.pairs(ptf.doubles(), table.getValueType()))));
+                        ptf.tableOf(table.getKeyType(), ptf.pairs(ptf.collections(ptf.pairs(ptf.doubles(), table.getValueType())), ptf.longs())));
   }
 
   private static List<Double> createListFromVarargs(double p1, double[] pn) {
@@ -115,7 +115,7 @@ public class Percentiles {
   }
 
   private static class InMemoryPercentiles<K, V extends Comparable> extends
-          MapFn<Pair<K, Iterable<V>>, Pair<K, Collection<Pair<Double, V>>>> {
+          MapFn<Pair<K, Iterable<V>>, Pair<K, Pair<Collection<Pair<Double, V>>, Long>>> {
     private final List<Double> percentileList;
 
     public InMemoryPercentiles(List<Double> percentiles) {
@@ -123,15 +123,15 @@ public class Percentiles {
     }
 
     @Override
-    public Pair<K, Collection<Pair<Double, V>>> map(Pair<K, Iterable<V>> input) {
+    public Pair<K, Pair<Collection<Pair<Double, V>>, Long>> map(Pair<K, Iterable<V>> input) {
       List<V> values = Lists.newArrayList(input.second().iterator());
       Collections.sort(values);
-      return Pair.of(input.first(), findPercentiles(values.iterator(), values.size(), percentileList));
+      return Pair.of(input.first(), Pair.of(findPercentiles(values.iterator(), values.size(), percentileList), Long.valueOf(values.size())));
     }
   }
 
   private static class DistributedPercentiles<K, V> extends
-          MapFn<Pair<K, Iterable<Pair<V, Long>>>, Pair<K, Collection<Pair<Double, V>>>> {
+          MapFn<Pair<K, Iterable<Pair<V, Long>>>, Pair<K, Pair<Collection<Pair<Double, V>>, Long>>> {
     private final List<Double> percentileList;
 
     public DistributedPercentiles(List<Double> percentileList) {
@@ -139,7 +139,7 @@ public class Percentiles {
     }
 
     @Override
-    public Pair<K, Collection<Pair<Double, V>>> map(Pair<K, Iterable<Pair<V, Long>>> input) {
+    public Pair<K, Pair<Collection<Pair<Double, V>>, Long>> map(Pair<K, Iterable<Pair<V, Long>>> input) {
 
       PeekingIterator<Pair<V, Long>> iterator = Iterators.peekingIterator(input.second().iterator());
       long count = iterator.peek().second();
@@ -152,7 +152,7 @@ public class Percentiles {
       });
 
       Collection<Pair<Double, V>> output = findPercentiles(valueIterator, count, percentileList);
-      return Pair.of(input.first(), output);
+      return Pair.of(input.first(), Pair.of(output, count));
     }
 
 
