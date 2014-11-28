@@ -6,6 +6,7 @@ import org.apache.crunch.MapFn;
 import org.apache.crunch.PTable;
 import org.apache.crunch.Pair;
 import org.apache.crunch.lib.SecondarySort;
+import org.apache.crunch.types.PType;
 import org.apache.crunch.types.PTypeFamily;
 
 import javax.annotation.Nullable;
@@ -30,7 +31,7 @@ public class Percentiles {
    * @param <V> Value type of the table (must extends java.lang.Number)
    * @return PTable of each key with a collection of pairs of the percentile provided and it's result.
    */
-  public static <K, V extends Number> PTable<K, Collection<Pair<Double, V>>> distributed(PTable<K, V> table,
+  public static <K, V extends Number> PTable<K, Result<V>> distributed(PTable<K, V> table,
           double p1, double... pn) {
     final List<Double> percentileList = createListFromVarargs(p1, pn);
 
@@ -44,7 +45,7 @@ public class Percentiles {
     return SecondarySort.sortAndApply(
             valueCountPairs,
             new DistributedPercentiles<K, V>(percentileList),
-            ptf.tableOf(table.getKeyType(), ptf.collections(ptf.pairs(ptf.doubles(), table.getValueType()))));
+            ptf.tableOf(table.getKeyType(), Result.pType(table.getValueType())));
   }
 
   /**
@@ -64,7 +65,7 @@ public class Percentiles {
    * @param <V> Value type of the table (must extends java.lang.Number)
    * @return PTable of each key with a collection of pairs of the percentile provided and it's result.
    */
-  public static <K, V extends Comparable> PTable<K, Collection<Pair<Double, V>>> inMemory(PTable<K, V> table,
+  public static <K, V extends Comparable> PTable<K, Result<V>> inMemory(PTable<K, V> table,
           double p1, double... pn) {
     final List<Double> percentileList = createListFromVarargs(p1, pn);
 
@@ -73,7 +74,7 @@ public class Percentiles {
     return table
             .groupByKey()
             .parallelDo(new InMemoryPercentiles<K, V>(percentileList),
-                        ptf.tableOf(table.getKeyType(), ptf.collections(ptf.pairs(ptf.doubles(), table.getValueType()))));
+                        ptf.tableOf(table.getKeyType(), Result.pType(table.getValueType())));
   }
 
   private static List<Double> createListFromVarargs(double p1, double[] pn) {
@@ -115,7 +116,7 @@ public class Percentiles {
   }
 
   private static class InMemoryPercentiles<K, V extends Comparable> extends
-          MapFn<Pair<K, Iterable<V>>, Pair<K, Collection<Pair<Double, V>>>> {
+          MapFn<Pair<K, Iterable<V>>, Pair<K, Result<V>>> {
     private final List<Double> percentileList;
 
     public InMemoryPercentiles(List<Double> percentiles) {
@@ -123,15 +124,15 @@ public class Percentiles {
     }
 
     @Override
-    public Pair<K, Collection<Pair<Double, V>>> map(Pair<K, Iterable<V>> input) {
+    public Pair<K, Result<V>> map(Pair<K, Iterable<V>> input) {
       List<V> values = Lists.newArrayList(input.second().iterator());
       Collections.sort(values);
-      return Pair.of(input.first(), findPercentiles(values.iterator(), values.size(), percentileList));
+      return Pair.of(input.first(), new Result<V>(values.size(), findPercentiles(values.iterator(), values.size(), percentileList)));
     }
   }
 
   private static class DistributedPercentiles<K, V> extends
-          MapFn<Pair<K, Iterable<Pair<V, Long>>>, Pair<K, Collection<Pair<Double, V>>>> {
+          MapFn<Pair<K, Iterable<Pair<V, Long>>>, Pair<K, Result<V>>> {
     private final List<Double> percentileList;
 
     public DistributedPercentiles(List<Double> percentileList) {
@@ -139,7 +140,7 @@ public class Percentiles {
     }
 
     @Override
-    public Pair<K, Collection<Pair<Double, V>>> map(Pair<K, Iterable<Pair<V, Long>>> input) {
+    public Pair<K, Result<V>> map(Pair<K, Iterable<Pair<V, Long>>> input) {
 
       PeekingIterator<Pair<V, Long>> iterator = Iterators.peekingIterator(input.second().iterator());
       long count = iterator.peek().second();
@@ -152,9 +153,76 @@ public class Percentiles {
       });
 
       Collection<Pair<Double, V>> output = findPercentiles(valueIterator, count, percentileList);
-      return Pair.of(input.first(), output);
+      return Pair.of(input.first(), new Result<V>(count, output));
+    }
+  }
+
+  /**
+   * Output type for storing the results of a Percentiles computation
+   * @param <V> Percentile value type
+   */
+  public static class Result<V> {
+    public final long count;
+    public final Map<Double, V> percentiles = Maps.newTreeMap();
+
+    public Result(long count, Iterable<Pair<Double, V>> percentiles) {
+      this.count = count;
+      for (Pair<Double,V> percentile: percentiles) {
+        this.percentiles.put(percentile.first(), percentile.second());
+      }
     }
 
+    /**
+     * Create a PType for the result type, to be stored as a derived type from Crunch primitives
+     * @param valuePType PType for the V type, whose family will also be used to create the derived type
+     * @param <V> Value type
+     * @return PType for serializing Result&lt;V&gt;
+     */
+    public static <V> PType<Result<V>> pType(PType<V> valuePType) {
+      PTypeFamily ptf = valuePType.getFamily();
 
+      @SuppressWarnings("unchecked")
+      Class<Result<V>> prClass = (Class<Result<V>>)(Class)Result.class;
+
+      return ptf.derivedImmutable(prClass, new MapFn<Pair<Collection<Pair<Double, V>>, Long>, Result<V>>() {
+        @Override
+        public Result<V> map(Pair<Collection<Pair<Double, V>>, Long> input) {
+          return new Result<V>(input.second(), input.first());
+        }
+      }, new MapFn<Result<V>, Pair<Collection<Pair<Double, V>>, Long>>() {
+        @Override
+        public Pair<Collection<Pair<Double, V>>, Long> map(Result<V> input) {
+          return Pair.of(asCollection(input.percentiles), input.count);
+        }
+      }, ptf.pairs(ptf.collections(ptf.pairs(ptf.doubles(), valuePType)), ptf.longs()));
+    }
+
+    private static <K, V> Collection<Pair<K, V>> asCollection(Map<K, V> map) {
+      Collection<Pair<K, V>> collection = Lists.newArrayList();
+      for (Map.Entry<K, V> entry: map.entrySet()) {
+        collection.add(Pair.of(entry.getKey(), entry.getValue()));
+      }
+      return collection;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+
+      Result result = (Result) o;
+
+      if (count != result.count) return false;
+      if (!percentiles.equals(result.percentiles)) return false;
+
+      return true;
+    }
+
+    @Override
+    public int hashCode() {
+      int result = (int) (count ^ (count >>> 32));
+      result = 31 * result + percentiles.hashCode();
+      return result;
+    }
   }
 }

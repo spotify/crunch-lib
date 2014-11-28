@@ -10,12 +10,18 @@ import org.junit.Test;
 import java.util.Collection;
 import java.util.Map;
 
+import com.spotify.crunch.lib.Percentiles.Result;
+
 import static org.apache.crunch.types.avro.Avros.ints;
 import static org.apache.crunch.types.avro.Avros.strings;
 import static org.apache.crunch.types.avro.Avros.tableOf;
 import static org.junit.Assert.assertEquals;
 
 public class PercentilesTest {
+
+  private static <T> Percentiles.Result<T> result(long count, Pair<Double, T>... percentiles) {
+    return new Percentiles.Result<T>(count, Lists.newArrayList(percentiles));
+  }
 
   @Test
   public void testPercentilesExact() {
@@ -26,10 +32,10 @@ public class PercentilesTest {
             "a", 3,
             "a", 4,
             "a", 1);
-    Map<String, Collection<Pair<Double, Integer>>> actualS = Percentiles.distributed(testTable, 0, 0.5, 1.0).materializeToMap();
-    Map<String, Collection<Pair<Double, Integer>>> actualM = Percentiles.inMemory(testTable, 0, 0.5, 1.0).materializeToMap();
-    Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
-            "a", (Collection<Pair<Double, Integer>>) Lists.newArrayList(Pair.of(0.0, 1), Pair.of(0.5, 3), Pair.of(1.0, 5))
+    Map<String, Result<Integer>> actualS = Percentiles.distributed(testTable, 0, 0.5, 1.0).materializeToMap();
+    Map<String, Result<Integer>> actualM = Percentiles.inMemory(testTable, 0, 0.5, 1.0).materializeToMap();
+    Map<String, Result<Integer>> expected = ImmutableMap.of(
+            "a", result(5, Pair.of(0.0, 1), Pair.of(0.5, 3), Pair.of(1.0, 5))
     );
 
     assertEquals(expected, actualS);
@@ -44,10 +50,10 @@ public class PercentilesTest {
             "a", 2, // We expect the 0.5 to correspond to this element, according to the "nearest rank" %ile definition.
             "a", 4,
             "a", 1);
-    Map<String, Collection<Pair<Double, Integer>>> actualS = Percentiles.distributed(testTable, 0.5).materializeToMap();
-    Map<String, Collection<Pair<Double, Integer>>> actualM = Percentiles.inMemory(testTable, 0.5).materializeToMap();
-    Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
-            "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.5, 2))
+    Map<String, Result<Integer>> actualS = Percentiles.distributed(testTable, 0.5).materializeToMap();
+    Map<String, Result<Integer>> actualM = Percentiles.inMemory(testTable, 0.5).materializeToMap();
+    Map<String, Result<Integer>> expected = ImmutableMap.of(
+            "a", result(4, Pair.of(0.5, 2))
     );
 
     assertEquals(expected, actualS);
@@ -68,10 +74,10 @@ public class PercentilesTest {
             "a", 80,
             "a", 90,
             "a", 100);
-    Map<String, Collection<Pair<Double, Integer>>> actualS = Percentiles.distributed(testTable, 0.9, 0.99).materializeToMap();
-    Map<String, Collection<Pair<Double, Integer>>> actualM = Percentiles.inMemory(testTable, 0.9, 0.99).materializeToMap();
-    Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
-            "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.9, 90), Pair.of(0.99, 100))
+    Map<String, Result<Integer>> actualS = Percentiles.distributed(testTable, 0.9, 0.99).materializeToMap();
+    Map<String, Result<Integer>> actualM = Percentiles.inMemory(testTable, 0.9, 0.99).materializeToMap();
+    Map<String, Result<Integer>> expected = ImmutableMap.of(
+            "a", result(10, Pair.of(0.9, 90), Pair.of(0.99, 100))
     );
 
     assertEquals(expected, actualS);
@@ -92,10 +98,10 @@ public class PercentilesTest {
             "a", 80,
             "a", 90,
             "a", 100);
-    Map<String, Collection<Pair<Double, Integer>>> actualS = Percentiles.distributed(testTable, 0.5).materializeToMap();
-    Map<String, Collection<Pair<Double, Integer>>> actualM = Percentiles.inMemory(testTable, 0.5).materializeToMap();
-    Map<String, Collection<Pair<Double, Integer>>> expected = ImmutableMap.of(
-            "a", (Collection<Pair<Double, Integer>>)Lists.newArrayList(Pair.of(0.5, 50))
+    Map<String, Result<Integer>> actualS = Percentiles.distributed(testTable, 0.5).materializeToMap();
+    Map<String, Result<Integer>> actualM = Percentiles.inMemory(testTable, 0.5).materializeToMap();
+    Map<String, Result<Integer>> expected = ImmutableMap.of(
+            "a", result(10, Pair.of(0.5, 50))
     );
 
     assertEquals(expected, actualS);
