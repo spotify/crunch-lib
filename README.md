@@ -9,7 +9,7 @@ If you want to try it, it's in the central Maven repo so you can use this snippe
 <dependency>
    <groupId>com.spotify.crunch</groupId>
    <artifactId>crunch-lib</artifactId>
-   <version>0.0.3</version>
+   <version>0.0.5</version>
 </dependency>
 ```
 
