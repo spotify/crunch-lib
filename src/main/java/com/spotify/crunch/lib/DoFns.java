@@ -31,6 +31,16 @@ public class DoFns {
    * object reuse often observed when using Avro. Wrap your DoFn in a detach(...) and pass in a PType for the Iterable
    * value, and then you'll be handed an Iterable of real distinct objects, instead of the same object being handed to
    * you multiple times with different data.
+   *
+   * You should use this when you have a parallelDo after a groupBy, and you'd like to capture the objects arriving in
+   * the Iterable part of the incoming Pair and pass it through to the output (for example if you want to create an
+   * array of outputs from the values to be output as one record).
+   *
+   * The will incur a performance hit, as it means that every object read from the Iterable will allocate a new Java
+   * object for the record and objects for all its non-primitive fields too. If you are rolling up records into a
+   * collection then this will be necessary anyway, but if you are only outputting derived data this may impact the
+   * speed and memory usage of your job unnecessarily.
+   *
    * @param reduceFn Underlying DoFn to wrap
    * @param valueType PType of the object contained within the Iterable
    * @param <K> Reduce key
