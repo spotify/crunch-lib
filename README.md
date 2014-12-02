@@ -34,3 +34,7 @@ If you want to try it, it's in the central Maven repo so you can use this snippe
 
 ## Percentiles
 * `distributed` / `inMemory` Calculates a set of percentiles for each key in the provided numerically-valued `PTable`.
+
+## DoFns
+* `detach` wrap a DoFn operating as a reducer such that each value given by the Iterable is already detached (preventing
+  object reuse problems)

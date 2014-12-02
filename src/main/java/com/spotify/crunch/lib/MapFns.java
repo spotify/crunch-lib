@@ -15,8 +15,13 @@
  */
 package com.spotify.crunch.lib;
 
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
 import org.apache.crunch.*;
+import org.apache.crunch.types.PType;
 import org.apache.hadoop.conf.Configuration;
+
+import java.io.Serializable;
 
 public class MapFns {
 
